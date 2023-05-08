@@ -1,0 +1,12 @@
+canvas {
+  border: 1px solid black;
+}
+
+button {
+  margin-top: 10px;
+}
+
+p {
+  font-weight: bold;
+  margin-top: 10px;
+}
