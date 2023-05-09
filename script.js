@@ -12,6 +12,28 @@ const feedbackBox = document.getElementById('feedback');
 let currentDrawing = null;
 let feedback = null;
 
+// Add event listeners to the canvas
+canvas.addEventListener('mousedown', startDrawing);
+canvas.addEventListener('mousemove', continueDrawing);
+canvas.addEventListener('mouseup', stopDrawing);
+
+// Define functions for handling drawing events
+function startDrawing(event) {
+  context.beginPath();
+  context.moveTo(event.offsetX, event.offsetY);
+  canvas.addEventListener('mousemove', continueDrawing);
+}
+
+function continueDrawing(event) {
+  context.lineTo(event.offsetX, event.offsetY);
+  context.stroke();
+}
+
+function stopDrawing(event) {
+  canvas.removeEventListener('mousemove', continueDrawing);
+  currentDrawing = context.getImageData(0, 0, canvas.width, canvas.height);
+}
+
 // Create a function to preprocess the image
 function preprocessImage(image) {
   // Convert to grayscale
@@ -68,4 +90,6 @@ submitButton.addEventListener('click', async () => {
 
     // Clear the current drawing
     currentDrawing = null;
-    context.clearRect(0, 0, canvas.width
+    context.clearRect(0, 0, canvas.width, canvas.height);
+  }
+});
