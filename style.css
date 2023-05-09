@@ -1,12 +1,9 @@
-canvas {
+#drawing-canvas {
   border: 1px solid black;
 }
-
-button {
+#submit-button {
   margin-top: 10px;
 }
-
-p {
-  font-weight: bold;
+#feedback {
   margin-top: 10px;
 }
