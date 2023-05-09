@@ -1,76 +1,71 @@
-// Define the canvas element and context
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+// Define the drawing canvas
+const canvas = document.getElementById('drawing-canvas');
+const context = canvas.getContext('2d');
 
-// Set the canvas dimensions
-canvas.width = 150;
-canvas.height = 150;
+// Define the submit button
+const submitButton = document.getElementById('submit-button');
 
-// Initialize the drawing variables
-let painting = false;
-let lastX = 0;
-let lastY = 0;
+// Define the feedback box
+const feedbackBox = document.getElementById('feedback');
 
-// Add event listeners for mouse and touch events
-canvas.addEventListener('mousedown', startDrawing);
-canvas.addEventListener('mousemove', draw);
-canvas.addEventListener('mouseup', endDrawing);
-canvas.addEventListener('touchstart', startDrawing);
-canvas.addEventListener('touchmove', draw);
-canvas.addEventListener('touchend', endDrawing);
+// Define variables for storing the current drawing and feedback
+let currentDrawing = null;
+let feedback = null;
 
-// Define the startDrawing function
-function startDrawing(e) {
-  painting = true;
-  [lastX, lastY] = getCoordinates(e);
+// Create a function to preprocess the image
+function preprocessImage(image) {
+  // Convert to grayscale
+  const grayscaleImage = new cv.Mat();
+  cv.cvtColor(image, grayscaleImage, cv.COLOR_RGBA2GRAY);
+
+  // Resize to 28x28 pixels
+  const resizedImage = new cv.Mat();
+  cv.resize(grayscaleImage, resizedImage, new cv.Size(28, 28));
+
+  // Convert to float32 array and normalize
+  const float32Array = new Float32Array(resizedImage.data.length);
+  cv.imshow(resizedImage, resizedImage); // necessary for rescaling values
+  cv.cvtColor(resizedImage, resizedImage, cv.COLOR_GRAY2RGBA);
+  for (let i = 0; i < resizedImage.data.length; i += 4) {
+    float32Array[i / 4] = resizedImage.data[i] / 255.0;
+  }
+
+  // Return the preprocessed image
+  return float32Array;
 }
 
-// Define the draw function
-function draw(e) {
-  if (!painting) return;
-  const [x, y] = getCoordinates(e);
-  ctx.beginPath();
-  ctx.moveTo(lastX, lastY);
-  ctx.lineTo(x, y);
-  ctx.stroke();
-  [lastX, lastY] = [x, y];
-}
+// Load the trained model
+const model = await tf.loadLayersModel('shape_recognition_model/model.json');
 
-// Define the endDrawing function
-function endDrawing() {
-  painting = false;
-}
+// Define a function to predict the shape
+async function predictShape(image) {
+  // Preprocess the image
+  const tensor = tf.tensor(preprocessImage(image)).reshape([1, 28, 28, 1]);
 
-// Define the getCoordinates function
-function getCoordinates(e) {
-  if (e.type.startsWith('mouse')) {
-    return [e.offsetX, e.offsetY];
-  } else if (e.type.startsWith('touch')) {
-    const rect = canvas.getBoundingClientRect();
-    return [e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top];
+  // Use the model to make a prediction
+  const prediction = await model.predict(tensor);
+
+  // Convert the prediction to a shape label
+  const shapeIndex = tf.argMax(prediction, 1).dataSync()[0];
+  if (shapeIndex == 0) {
+    return 'Circle';
+  } else if (shapeIndex == 1) {
+    return 'Square';
+  } else {
+    return 'Triangle';
   }
 }
 
-// Add event listener for the predict button
-const predictBtn = document.getElementById('predict-btn');
-predictBtn.addEventListener('click', predictShape);
+// Define a function to handle the submit button click
+submitButton.addEventListener('click', async () => {
+  if (currentDrawing !== null) {
+    // Predict the shape of the drawing
+    const shape = await predictShape(currentDrawing);
 
-// Define the predictShape function
-async function predictShape() {
-  // Get the canvas image data as a base64-encoded string
-  const imageData = canvas.toDataURL('image/png').replace('data:image/png;base64,', '');
+    // Display the prediction in the feedback box
+    feedback = `Is this a ${shape}? (Y/N)`;
+    feedbackBox.innerText = feedback;
 
-  // Send the image data to the server to get the prediction
-  const response = await fetch('/predict', {
-    method: 'POST',
-    body: JSON.stringify({ image_data: imageData }),
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  });
-
-  // Get the prediction result and display it
-  const result = await response.json();
-  const resultElem = document.getElementById('result');
-  resultElem.textContent = `The shape is a ${result.prediction}.`;
-}
+    // Clear the current drawing
+    currentDrawing = null;
+    context.clearRect(0, 0, canvas.width
